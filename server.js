@@ -1,10 +1,10 @@
 require('dotenv').config();
 const express = require('express');
-const cors    = require('cors');
+const cors = require('cors');
 const midtransClient = require('midtrans-client');
-const crypto  = require('crypto');
+const crypto = require('crypto');
 
-const app  = express();
+const app = express();
 app.use(cors());
 app.use(express.json());
 
@@ -30,29 +30,29 @@ app.post('/api/payment/create', async (req, res) => {
 
   try {
     const chargeResponse = await coreApi.charge({
-  payment_type: 'qris',
-  transaction_details: {
-    order_id: txId,
-    gross_amount: price,
-  },
-  qris: {
-    acquirer: 'gopay',
-  },
-  custom_field1: String(volume),
-});
+      payment_type: 'qris',
+      transaction_details: {
+        order_id: txId,
+        gross_amount: price,
+      },
+      qris: {
+        acquirer: 'gopay',
+      },
+      custom_field1: String(volume),
+    });
 
-console.log(chargeResponse);
+    console.log(chargeResponse);
     transactions[txId] = {
-      status:    'PENDING',
-      volume:    volume,
-      price:     price,
+      status: 'PENDING',
+      volume: volume,
+      price: price,
       qr_string: chargeResponse.qr_string,
-      actions:   chargeResponse.actions,
+      actions: chargeResponse.actions,
     };
 
     res.json({
       transaction_id: txId,
-      qr_string:      chargeResponse.qr_string,
+      qr_string: chargeResponse.qr_string,
       qr_url: chargeResponse.actions?.find(a => a.name === 'generate-qr-code')?.url || null,
     });
 
@@ -82,6 +82,11 @@ app.get('/api/payment/status/:txId', async (req, res) => {
       statusResponse.transaction_status === 'deny'
     ) {
       status = 'FAILED';
+    }
+
+    // UPDATE MEMORI BACKEND KARENA WEBHOOK DIABAIKAN
+    if (transactions[req.params.txId]) {
+      transactions[req.params.txId].status = status;
     }
 
     res.json({
@@ -152,6 +157,28 @@ app.get('/api/dispense/progress/:txId', (req, res) => {
     filled: tx.filled || 0,
     status: tx.dispenseStatus || 'DISPENSING',
   });
+});
+
+// 6. GET NEXT DISPENSE JOB (dari ESP32)
+app.get('/api/dispense/next-job', (req, res) => {
+  // Cari transaksi yang PAID dan belum pernah diproses sama sekali
+  const job = Object.keys(transactions).find(txId => {
+    const tx = transactions[txId];
+    return tx.status === 'PAID' && !tx.dispenseStatus; // Hanya jika dispenseStatus masih kosong/undefined
+  });
+
+  if (job) {
+    const tx = transactions[job];
+    // Langsung tandai sebagai 'DISPENSING' agar tidak pernah diambil lagi oleh cek selanjutnya
+    tx.dispenseStatus = 'DISPENSING';
+
+    res.json({
+      txId: job,
+      volume: tx.volume
+    });
+  } else {
+    res.json({ txId: null });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
