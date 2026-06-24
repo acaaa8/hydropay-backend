@@ -17,7 +17,7 @@ float currentVolume_mL = 0.0;
 // Faktor kalibrasi S401 (YF-S401) umumnya F = 98 * Q.
 // Artinya 1 Liter = sekitar 5880 pulse -> 1 mL = 5.88 pulse.
 // Sesuaikan angka ini (5.88) jika volume air tidak akurat (lakukan kalibrasi pakai gelas ukur)
-const float calibrationFactor = 5.88; 
+const float calibrationFactor = 4.73; 
 
 // ================= VARIABEL STATE & TRANSAKSI =================
 enum State { WAITING, DISPENSING };
